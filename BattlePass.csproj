@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net8.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CounterStrikeSharp.API" Version="*"/>
+        <PackageReference Include="Dapper" Version="*"/>
+        <PackageReference Include="MySqlConnector" Version="*"/>
+        <Reference Include="MenuManagerApi">
+            <HintPath>C:\Users\Stimayk.DESKTOP-1HFB3FI\Documents\GitHub\MenuManagerCS2\MenuManagerCore\bin\Debug\net8.0\MenuManagerApi.dll</HintPath>
+        </Reference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Update="lang\**\*.*" CopyToOutputDirectory="PreserveNewest"/>
+    </ItemGroup>
+
+</Project>
