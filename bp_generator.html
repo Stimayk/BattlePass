@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="ru" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BattlePass Config Generator</title>
+    <!-- Bootstrap 5.3 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #0d1117; }
+        .card { border-color: #30363d; }
+        .card-header { border-bottom-color: #30363d; background-color: #161b22; }
+
+        .form-control, .form-select {
+            background-color: #0d1117;
+            border-color: #30363d;
+            color: #c9d1d9;
+        }
+        .form-control:focus, .form-select:focus {
+            background-color: #161b22;
+            border-color: #58a6ff;
+            color: #fff;
+            box-shadow: 0 0 0 0.25rem rgba(88, 166, 255, 0.25);
+        }
+        .form-control:disabled { background-color: #21262d; opacity: 0.7; }
+
+        .accordion-button { background-color: #21262d; color: #c9d1d9; }
+        .accordion-button:not(.collapsed) { background-color: #30363d; color: #58a6ff; }
+        .accordion-item { border-color: #30363d; background-color: #161b22; }
+
+        .param-row { display: flex; gap: 10px; margin-bottom: 5px; align-items: center; }
+
+        .json-output {
+            background-color: #0d1117;
+            color: #7ee787;
+            font-family: 'Consolas', monospace;
+            font-size: 0.85rem;
+            border: 1px solid #30363d;
+        }
+
+        .btn-xs { padding: 0.1rem 0.4rem; font-size: 0.75rem; }
+        .placeholder-badge {
+            cursor: pointer;
+            font-size: 0.7rem;
+            user-select: none;
+            transition: 0.2s;
+        }
+        .placeholder-badge:hover { opacity: 0.8; transform: scale(1.05); }
+
+        .event-param-tag {
+            cursor: pointer;
+            font-size: 0.75rem;
+            border: 1px solid #30363d;
+            background: #161b22;
+            color: #8b949e;
+            padding: 4px 10px;
+            border-radius: 4px;
+            user-select: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+        }
+        .event-param-tag:hover {
+            border-color: #58a6ff;
+            color: #58a6ff;
+            background: #1f242c;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="container py-4">
+    <!-- TOOLBAR -->
+    <div class="d-flex justify-content-between align-items-center mb-4 p-3 rounded border border-secondary bg-dark">
+        <div class="d-flex align-items-center gap-3">
+            <h2 class="m-0"><i class="bi bi-controller"></i> BattlePass Config</h2>
+            <div v-if="loadingEvents" class="text-warning small"><span class="spinner-border spinner-border-sm"></span> Загрузка ивентов...</div>
+            <div v-else class="text-success small"><i class="bi bi-check-circle"></i> Ивенты загружены ({{ Object.keys(eventLibrary).length }})</div>
+        </div>
+        <div class="d-flex gap-2">
+            <input type="file" ref="fileInput" @change="loadConfig" accept=".json" class="d-none">
+            <button @click="$refs.fileInput.click()" class="btn btn-primary"><i class="bi bi-upload"></i> Загрузить JSON</button>
+            <button @click="downloadConfig" class="btn btn-outline-light"><i class="bi bi-download"></i> Скачать файл</button>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- LEFT COLUMN: EDITOR -->
+        <div class="col-lg-8">
+
+            <!-- DATABASE & GENERAL -->
+            <div class="card mb-3">
+                <div class="card-header fw-bold text-info"><i class="bi bi-database"></i> База данных и Настройки</div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">DB Host</label>
+                            <input v-model="config.DatabaseHost" type="text" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-secondary small">DB Port</label>
+                            <input v-model.number="config.DatabasePort" type="number" class="form-control">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label text-secondary small">Server ID</label>
+                            <input v-model.number="config.ServerId" type="number" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-secondary small">DB User</label>
+                            <input v-model="config.DatabaseUser" type="text" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-secondary small">DB Password</label>
+                            <input v-model="config.DatabasePassword" type="text" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label text-secondary small">DB Name</label>
+                            <input v-model="config.DatabaseName" type="text" class="form-control">
+                        </div>
+                        <div class="col-md-12"><hr class="border-secondary"></div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">Минимальное кол-во игроков</label>
+                            <input v-model.number="config.MinPlayers" type="number" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">Команды (через запятую)</label>
+                            <input v-model="commandsString" type="text" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">Стартовый уровень</label>
+                            <input v-model.number="config.StartLevel" type="number" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-secondary small">Стартовый XP</label>
+                            <input v-model.number="config.StartXp" type="number" class="form-control">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LEVELS -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-warning"><i class="bi bi-ladder"></i> Уровни</span>
+                    <button @click="addLevel" class="btn btn-sm btn-success"><i class="bi bi-plus-lg"></i></button>
+                </div>
+                <div class="card-body">
+                    <div class="accordion" id="levelsAccordion">
+                        <div v-for="(lvl, index) in uiLevels" :key="index" class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" :data-bs-target="'#lvl'+index">
+                                    <span class="badge bg-dark border border-secondary me-2">Lvl {{ lvl.id }}</span>
+                                    <span class="text-muted">{{ lvl.settings.Xp }} XP</span>
+                                    <span v-if="lvl.settings.Item" class="ms-auto small text-success">{{ lvl.settings.Item }}</span>
+                                </button>
+                            </h2>
+                            <div :id="'lvl'+index" class="accordion-collapse collapse" data-bs-parent="#levelsAccordion">
+                                <div class="accordion-body">
+                                    <div class="row g-3">
+                                        <div class="col-md-2">
+                                            <label class="form-label small">Уровень</label>
+                                            <input v-model.number="lvl.id" type="number" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small">XP</label>
+                                            <input v-model.number="lvl.settings.Xp" type="number" class="form-control form-control-sm">
+                                        </div>
+                                        <div class="col-md-7 text-end">
+                                            <button @click="removeLevel(index)" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash"></i> Удалить</button>
+                                        </div>
+
+                                        <div class="col-md-6 border-end border-secondary">
+                                            <h6 class="text-info small text-uppercase">Обычная награда</h6>
+                                            <div class="mb-2">
+                                                <input v-model="lvl.settings.Item" type="text" class="form-control form-control-sm" placeholder="Название предмета">
+                                            </div>
+                                            <div class="mb-2">
+                                                <input v-model="lvl.settings.Command" type="text" class="form-control form-control-sm" placeholder="Команда">
+                                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                                    <span v-for="ph in placeholders" @click="appendPlaceholder(lvl.settings, 'Command', ph)" class="badge bg-secondary placeholder-badge">{{ ph }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-warning small text-uppercase">Premium награда</h6>
+                                            <div class="mb-2">
+                                                <input v-model="lvl.settings.ItemPremium" type="text" class="form-control form-control-sm" placeholder="Название предмета">
+                                            </div>
+                                            <div class="mb-2">
+                                                <input v-model="lvl.settings.CommandPremium" type="text" class="form-control form-control-sm" placeholder="Команда">
+                                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                                    <span v-for="ph in placeholders" @click="appendPlaceholder(lvl.settings, 'CommandPremium', ph)" class="badge bg-secondary placeholder-badge">{{ ph }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TASKS -->
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="fw-bold text-success"><i class="bi bi-list-check"></i> Задания ({{ uiTaskGroups.length }} групп)</span>
+                    <button @click="addTaskGroup" class="btn btn-sm btn-success"><i class="bi bi-folder-plus"></i></button>
+                </div>
+                <div class="card-body">
+                    <div v-for="(group, gIndex) in uiTaskGroups" :key="gIndex" class="card mb-3 border-secondary bg-dark">
+                        <div class="card-header d-flex justify-content-between align-items-center py-2">
+                            <div class="d-flex gap-2 align-items-center">
+                                <span class="badge bg-primary">{{ formatTime(group.seconds) }}</span>
+                                <input v-model.number="group.seconds" type="number" class="form-control form-control-sm bg-dark text-white border-secondary" style="width: 80px;" placeholder="Сек">
+                            </div>
+                            <button @click="removeTaskGroup(gIndex)" class="btn btn-outline-danger btn-sm py-0"><i class="bi bi-x"></i></button>
+                        </div>
+                        <div class="card-body pt-2 pb-2">
+                            <div class="row mb-3">
+                                <div class="col-md-5">
+                                    <label class="small text-secondary">Название группы</label>
+                                    <input v-model="group.data.GroupName" type="text" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="small text-secondary">Кол-во выдачи</label>
+                                    <input v-model.number="group.data.CountGive" type="number" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-4 d-flex align-items-end">
+                                    <div class="form-check">
+                                        <input v-model="group.data.ResetProgress" class="form-check-input" type="checkbox" :id="'reset'+gIndex">
+                                        <label class="form-check-label small text-secondary" :for="'reset'+gIndex">Сброс при обновлении</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <h6 class="border-bottom border-secondary pb-1 mb-2 text-white-50 d-flex justify-content-between">
+                                Список задач ({{ group.uiTasks.length }})
+                                <button @click="addTaskToGroup(gIndex)" class="btn btn-outline-primary btn-xs">+ Add</button>
+                            </h6>
+
+                            <div class="accordion" :id="'tasksAcc'+gIndex">
+                                <div v-for="(task, tIndex) in group.uiTasks" :key="tIndex" class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed py-2" type="button" data-bs-toggle="collapse" :data-bs-target="'#g'+gIndex+'t'+tIndex">
+                                            <span class="badge bg-secondary me-2">{{ task.id }}</span>
+                                            <span class="text-truncate" style="max-width: 200px;">{{ task.settings.Name || '...' }}</span>
+                                            <span class="ms-2 badge bg-dark text-muted small">{{ task.settings.Event }}</span>
+                                        </button>
+                                    </h2>
+                                    <div :id="'g'+gIndex+'t'+tIndex" class="accordion-collapse collapse" :data-bs-parent="'#tasksAcc'+gIndex">
+                                        <div class="accordion-body">
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
+                                                    <label class="small text-secondary">ID (уникальный)</label>
+                                                    <input v-model="task.id" type="text" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="small text-secondary">Название</label>
+                                                    <input v-model="task.settings.Name" type="text" class="form-control form-control-sm">
+                                                </div>
+                                                <!-- EVENT SELECTOR -->
+                                                <div class="col-md-4">
+                                                    <label class="small text-secondary">Ивент</label>
+                                                    <input 
+                                                        v-model="task.settings.Event" 
+                                                        list="dl_events" 
+                                                        type="text" 
+                                                        class="form-control form-control-sm text-info fw-bold"
+                                                        placeholder="Введите или выберите..."
+                                                    >
+                                                </div>
+
+                                                <div class="col-md-6">
+                                                    <label class="small text-secondary">Описание</label>
+                                                    <textarea v-model="task.settings.Description" class="form-control form-control-sm" rows="1"></textarea>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="small text-secondary">Описание (Premium)</label>
+                                                    <textarea v-model="task.settings.DescriptionPremium" class="form-control form-control-sm" rows="1"></textarea>
+                                                </div>
+
+                                                <div class="col-md-3">
+                                                    <label class="small text-info">Цель</label>
+                                                    <input v-model.number="task.settings.Need" type="number" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="small text-info">XP</label>
+                                                    <input v-model.number="task.settings.Xp" type="number" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="small text-warning">Цель (Prem)</label>
+                                                    <input v-model.number="task.settings.NeedPremium" type="number" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-3">
+                                                    <label class="small text-warning">XP (Prem)</label>
+                                                    <input v-model.number="task.settings.XpPremium" type="number" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="form-check">
+                                                        <input v-model="task.settings.PremiumPass" class="form-check-input" type="checkbox" :id="'premCheck'+gIndex+tIndex">
+                                                        <label class="form-check-label small text-secondary" :for="'premCheck'+gIndex+tIndex">Только для Premium Pass</label>
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-12 mt-2">
+                                                    <div class="border border-secondary rounded p-2 bg-dark">
+                                                        <h6 class="small text-muted mb-2">Параметры ивента (Event Params)</h6>
+                                                        <div v-for="(param, pIndex) in task.uiParams" :key="pIndex" class="param-row">
+                                                            <input v-model="param.key" type="text" class="form-control form-control-sm" placeholder="Параметр" readonly>
+
+                                                            <!-- VALUE INPUT -->
+                                                            <select v-if="param.type === 'bool'" v-model="param.value" class="form-select form-select-sm">
+                                                                <option :value="true">true</option>
+                                                                <option :value="false">false</option>
+                                                            </select>
+                                                            <input v-else v-model="param.value" type="text" class="form-control form-control-sm" placeholder="Значение">
+                                                            
+                                                            <button @click="removeParam(task, pIndex)" class="btn btn-outline-danger btn-sm py-0 border-0"><i class="bi bi-x-lg"></i></button>
+                                                        </div>
+
+                                                        <!-- SUGGESTED PARAMS -->
+                                                        <div v-if="eventLibrary[task.settings.Event]" class="mt-2 border-top border-secondary pt-2">
+                                                            <div class="small text-white-50 mb-1">Доступные параметры для <span class="text-info">{{ task.settings.Event }}</span> (нажмите, чтобы добавить):</div>
+                                                            <div class="d-flex flex-wrap gap-1">
+                                                                <div 
+                                                                    v-for="(info, pName) in eventLibrary[task.settings.Event]" 
+                                                                    @click="addParamFromLib(task, pName, info.type)"
+                                                                    class="event-param-tag"
+                                                                    :title="info.desc ? info.desc : 'Нет описания'"
+                                                                >
+                                                                    {{ pName }}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div v-else-if="task.settings.Event" class="mt-2 pt-1 small text-muted">
+                                                            <i class="bi bi-info-circle"></i> Параметры для этого ивента не найдены в базе.
+                                                        </div>
+
+                                                    </div>
+                                                </div>
+
+                                                <div class="col-12 text-end mt-2">
+                                                    <button @click="removeTask(group, tIndex)" class="btn btn-danger btn-sm"><i class="bi bi-trash"></i> Удалить задачу</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- RIGHT COLUMN: OUTPUT -->
+        <div class="col-lg-4">
+            <div class="sticky-top" style="top: 20px; z-index: 10;">
+                <div class="card">
+                    <div class="card-header fw-bold text-success"><i class="bi bi-code-slash"></i> Результат JSON</div>
+                    <div class="card-body p-0">
+                        <textarea readonly class="form-control json-output border-0" style="height: 600px;">{{ generatedJson }}</textarea>
+                    </div>
+                    <div class="card-footer d-flex gap-2">
+                        <button @click="copyToClipboard" class="btn btn-success flex-grow-1"><i class="bi bi-clipboard"></i> Копировать</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DYNAMIC DATALIST -->
+    <datalist id="dl_events">
+        <option v-for="(params, evName) in eventLibrary" :value="evName"></option>
+    </datalist>
+
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    const { createApp } = Vue;
+
+    createApp({
+        data() {
+            return {
+                config: {
+                    DatabaseHost: "localhost", DatabasePort: 3306, DatabaseUser: "root",
+                    DatabasePassword: "", DatabaseName: "battlepass", ServerId: 1,
+                    Commands: ["bp", "battlepass"], MinPlayers: 2, StartXp: 0, StartLevel: 1,
+                    Levels: {}, Tasks: {}
+                },
+                commandsString: "bp, battlepass",
+                placeholders: ["{steamid}", "{steamid2}", "{steamid3}", "{name}", "{userid}"],
+                uiLevels: [],
+                uiTaskGroups: [
+                    {
+                        seconds: 3600,
+                        data: { GroupName: "Часовые", CountGive: 2, ResetProgress: false },
+                        uiTasks: []
+                    }
+                ],
+
+                loadingEvents: false,
+                eventLibrary: {},
+                eventSources: [
+                    "https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/refs/heads/master/game/csgo/pak01_dir/resource/game.gameevents",
+                    "https://raw.githubusercontent.com/SteamDatabase/GameTracking-CS2/refs/heads/master/game/csgo/pak01_dir/resource/mod.gameevents"
+                ]
+            }
+        },
+        watch: {
+            commandsString(newVal) {
+                this.config.Commands = newVal.split(',').map(s => s.trim()).filter(s => s);
+            }
+        },
+        async mounted() {
+            await this.fetchAndParseEvents();
+        },
+        computed: {
+            generatedJson() {
+                const finalObj = { ...this.config };
+
+                finalObj.Levels = {};
+                this.uiLevels.forEach(lvl => {
+                    if(lvl.id) finalObj.Levels[parseInt(lvl.id)] = lvl.settings;
+                });
+
+                finalObj.Tasks = {};
+                this.uiTaskGroups.forEach(grp => {
+                    const taskGroup = {
+                        GroupName: grp.data.GroupName,
+                        CountGive: grp.data.CountGive,
+                        ResetProgress: !!grp.data.ResetProgress
+                    };
+                    taskGroup.RawTasks = {};
+
+                    grp.uiTasks.forEach(t => {
+                        const taskSettings = { ...t.settings };
+                        taskSettings.EventParams = {};
+                        t.uiParams.forEach(p => {
+                            if(p.key) {
+                                let val = p.value;
+                                if(p.type === 'int') val = parseInt(val);
+                                else if(p.type === 'float') val = parseFloat(val);
+                                else if(p.type === 'bool') val = (String(val) === 'true');
+                                
+                                taskSettings.EventParams[p.key] = val;
+                            }
+                        });
+                        if(t.id) taskGroup.RawTasks[t.id] = taskSettings;
+                    });
+
+                    if(grp.seconds) finalObj.Tasks[parseInt(grp.seconds)] = taskGroup;
+                });
+
+                return JSON.stringify(finalObj, null, 2);
+            }
+        },
+        methods: {
+            async fetchAndParseEvents() {
+                this.loadingEvents = true;
+                const tempLibrary = {};
+                for (const url of this.eventSources) {
+                    try {
+                        const response = await fetch(url);
+                        if(!response.ok) throw new Error("HTTP " + response.status);
+                        const text = await response.text();
+                        const parsed = this.parseValveKV(text);
+                        Object.assign(tempLibrary, parsed);
+                    } catch (e) {
+                        console.error("Ошибка загрузки ивентов:", url, e);
+                    }
+                }
+                const sortedKeys = Object.keys(tempLibrary).sort();
+                const sortedLib = {};
+                sortedKeys.forEach(k => sortedLib[k] = tempLibrary[k]);
+                this.eventLibrary = sortedLib;
+                this.loadingEvents = false;
+            },
+
+            parseValveKV(text) {
+                const events = {};
+                const lines = text.split('\n');
+                let currentEventName = null;
+                let insideEvent = false;
+                let braceDepth = 0;
+
+                for (let line of lines) {
+                    const originalLine = line.trim();
+                    const cleanLine = originalLine.split('//')[0].trim();
+                    if (!cleanLine) continue;
+
+                    if (cleanLine.includes('{')) {
+                        braceDepth++;
+                        if (braceDepth === 2 && currentEventName) {
+                            insideEvent = true;
+                            events[currentEventName] = {};
+                        }
+                        continue; 
+                    }
+                    if (cleanLine.includes('}')) {
+                        if(braceDepth === 2) {
+                            insideEvent = false;
+                            currentEventName = null;
+                        }
+                        braceDepth--;
+                        continue;
+                    }
+
+                    const matches = line.match(/"([^"]+)"\s*"([^"]+)"(.*)/);
+                    if (matches) {
+                        if (insideEvent && currentEventName) {
+                            const paramName = matches[1];
+                            const valveType = matches[2];
+                            let comment = matches[3] ? matches[3].trim() : "";
+                            if(comment.startsWith("//")) comment = comment.substring(2).trim();
+
+                            events[currentEventName][paramName] = {
+                                type: valveType,
+                                uiType: this.mapTypeToUI(valveType),
+                                desc: comment
+                            };
+                        }
+                    } else {
+                        const nameMatch = cleanLine.match(/"([^"]+)"/);
+                        if (nameMatch && braceDepth === 1) {
+                            currentEventName = nameMatch[1];
+                        }
+                    }
+                }
+                return events;
+            },
+
+            mapTypeToUI(valveType) {
+                if (['byte', 'short', 'long', 'int', 'uint64'].includes(valveType)) return 'int';
+                if (['float'].includes(valveType)) return 'float';
+                if (valveType === 'bool') return 'bool';
+                return 'string';
+            },
+
+            addParamFromLib(task, paramName, valveType) {
+                if(task.uiParams.find(p => p.key === paramName)) return;
+
+                const uiType = this.mapTypeToUI(valveType);
+                let uiValue = "";
+                if (uiType === 'bool') uiValue = false;
+                else if (uiType === 'int') uiValue = 0;
+                else if (uiType === 'float') uiValue = 0.0;
+
+                task.uiParams.push({
+                    key: paramName,
+                    value: uiValue,
+                    type: uiType
+                });
+            },
+
+            loadConfig(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        this.mapConfigToUI(json);
+                    } catch (err) {
+                        alert("Ошибка JSON: " + err.message);
+                    }
+                };
+                reader.readAsText(file);
+                event.target.value = '';
+            },
+
+            mapConfigToUI(json) {
+                this.config.DatabaseHost = json.DatabaseHost || "";
+                this.config.DatabasePort = json.DatabasePort || 3306;
+                this.config.DatabaseUser = json.DatabaseUser || "";
+                this.config.DatabasePassword = json.DatabasePassword || "";
+                this.config.DatabaseName = json.DatabaseName || "";
+                this.config.ServerId = json.ServerId || 1;
+                this.config.MinPlayers = (json.MinPlayers !== undefined) ? json.MinPlayers : 2;
+                this.config.StartXp = (json.StartXp !== undefined) ? json.StartXp : 0;
+                this.config.StartLevel = (json.StartLevel !== undefined) ? json.StartLevel : 1;
+                this.config.Commands = json.Commands || [];
+                this.commandsString = this.config.Commands.join(", ");
+
+                this.uiLevels = [];
+                if (json.Levels) {
+                    for (const [lvlId, settings] of Object.entries(json.Levels)) {
+                        this.uiLevels.push({ id: parseInt(lvlId), settings: { ...settings } });
+                    }
+                    this.uiLevels.sort((a,b) => a.id - b.id);
+                }
+
+                this.uiTaskGroups = [];
+                if (json.Tasks) {
+                    for (const [seconds, group] of Object.entries(json.Tasks)) {
+                        const uiGroup = {
+                            seconds: parseInt(seconds),
+                            data: { GroupName: group.GroupName, CountGive: group.CountGive, ResetProgress: (group.ResetProgress !== undefined) ? group.ResetProgress : false },
+                            uiTasks: []
+                        };
+                        if (group.RawTasks) {
+                            for (const [taskId, tSettings] of Object.entries(group.RawTasks)) {
+                                const uiParams = [];
+                                if (tSettings.EventParams) {
+                                    for (const [pKey, pVal] of Object.entries(tSettings.EventParams)) {
+                                        let type = "string";
+                                        if (typeof pVal === "boolean") type = "bool";
+                                        else if (typeof pVal === "number") {
+                                            type = Number.isInteger(pVal) ? "int" : "float";
+                                        }
+                                        uiParams.push({ key: pKey, value: pVal, type: type });
+                                    }
+                                }
+                                uiGroup.uiTasks.push({
+                                    id: taskId,
+                                    settings: {
+                                        Name: tSettings.Name,
+                                        Description: tSettings.Description,
+                                        DescriptionPremium: tSettings.DescriptionPremium,
+                                        Event: tSettings.Event,
+                                        Need: tSettings.Need,
+                                        NeedPremium: tSettings.NeedPremium,
+                                        Xp: tSettings.Xp,
+                                        XpPremium: tSettings.XpPremium,
+                                        PremiumPass: tSettings.PremiumPass
+                                    },
+                                    uiParams: uiParams
+                                });
+                            }
+                        }
+                        this.uiTaskGroups.push(uiGroup);
+                    }
+                    this.uiTaskGroups.sort((a,b) => a.seconds - b.seconds);
+                }
+            },
+            downloadConfig() {
+                const blob = new Blob([this.generatedJson], { type: "application/json" });
+                const link = document.createElement("a");
+                link.href = URL.createObjectURL(blob);
+                link.download = "BattlePass.json";
+                link.click();
+            },
+            addLevel() {
+                const nextId = this.uiLevels.length > 0 ? Math.max(...this.uiLevels.map(l => l.id)) + 1 : 2;
+                this.uiLevels.push({ id: nextId, settings: { Xp: 500, Item: "", Command: "", ItemPremium: "", CommandPremium: "" } });
+            },
+            removeLevel(index) { this.uiLevels.splice(index, 1); },
+            appendPlaceholder(settingsObj, field, placeholder) {
+                if(!settingsObj[field]) settingsObj[field] = "";
+                settingsObj[field] += placeholder;
+            },
+            addTaskGroup() {
+                this.uiTaskGroups.push({ seconds: 86400, data: { GroupName: "Новая группа", CountGive: 3, ResetProgress: false }, uiTasks: [] });
+            },
+            removeTaskGroup(index) { if(confirm("Удалить группу?")) this.uiTaskGroups.splice(index, 1); },
+            addTaskToGroup(groupIndex) {
+                this.uiTaskGroups[groupIndex].uiTasks.push({
+                    id: "task_" + Math.floor(Math.random()*10000),
+                    settings: { Name: "", Description: "", Event: "", Need: 10, NeedPremium: 5, Xp: 100, XpPremium: 150, PremiumPass: false },
+                    uiParams: []
+                });
+            },
+            removeTask(group, taskIndex) { group.uiTasks.splice(taskIndex, 1); },
+            removeParam(task, index) { task.uiParams.splice(index, 1); },
+            copyToClipboard() { navigator.clipboard.writeText(this.generatedJson).then(() => alert("JSON скопирован!")); },
+            formatTime(seconds) {
+                if(!seconds) return "0м";
+                if(seconds < 60) return seconds + "с";
+                if(seconds < 3600) return Math.floor(seconds/60) + "м";
+                if(seconds < 86400) return Math.floor(seconds/3600) + "ч";
+                return Math.floor(seconds/86400) + "д";
+            }
+        }
+    }).mount('#app');
+</script>
+</body>
+</html>
